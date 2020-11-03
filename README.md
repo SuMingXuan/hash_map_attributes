@@ -38,5 +38,15 @@ page = Page.new(image_url: 'http://www.image.com/example1.png', background_url: 
 page.save
 page.image_url #=> http://www.image.com/example1.png
 page.background_url #=> http://www.image.com/example2.png
-```
 
+```
+### 查询
+
+```ruby
+Page.where_hash(image_url: 'http://www.baidu.com', background_url: 'http://www.baklib.com')
+```
+控制台会打印如下查询语句
+
+```sql 
+SELECT "pages".* FROM "pages" WHERE (special_channels.extra_data->>'image_url' = 'http://www.baidu.com' and special_channels.extra_data->>'background_url' = 'http://www.baklib.com')
+```
