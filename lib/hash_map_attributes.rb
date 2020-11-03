@@ -9,8 +9,8 @@ module HashMapAttributes
     def hash_map_attributes(*attributes, to:)
       _hash_map_attributes
       attributes.each do |attribute|
-        self.instance_variable_get('@_hash_map_attributes')[to] ||= Set.new
-        self.instance_variable_get('@_hash_map_attributes')[to] << attribute.to_s
+        @_hash_map_attributes[to] ||= Set.new
+        @_hash_map_attributes[to] << attribute.to_s
       end
       class_eval do
         _hash_map_attributes.each_pair do |_to, _attributes|
