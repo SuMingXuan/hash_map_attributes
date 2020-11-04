@@ -5,23 +5,39 @@ module HashMapAttributes
     base.extend ClassMethods
   end
 
+  class AttributeContainer
+    attr_reader :attribute, :to, :prefix, :allow_nil, :method_name
+    def initialize(attribute, to, prefix, allow_nil)
+      @to = to.to_s
+      @prefix = \
+        if prefix
+          "#{prefix == true ? to : prefix}_"
+        else
+          ''
+        end
+      @attribute = attribute.to_s
+      @allow_nil = allow_nil
+      @method_name = "#{@prefix}#{@attribute}"
+    end
+  end
+
   module ClassMethods
-    def hash_map_attributes(*attributes, to:)
+    def hash_map_attributes(*attributes, to:, prefix: nil, allow_nil: nil)
       _hash_map_attributes
       attributes.each do |attribute|
-        @_hash_map_attributes[to] ||= Set.new
-        @_hash_map_attributes[to] << attribute.to_s
+        @_hash_map_attributes << AttributeContainer.new(attribute, to, prefix, allow_nil)
       end
       class_eval do
-        _hash_map_attributes.each_pair do |_to, _attributes|
-          _attributes.each do |_attribute|
-            define_method _attribute do
-              send(_to).to_hash.stringify_keys![_attribute]
-            end
+        _hash_map_attributes.each do |container|
+          _attribute = container.attribute
+          _to = container.to
+          method_name = container.method_name
+          define_method method_name do
+            send(_to).to_hash.stringify_keys![_attribute]
+          end
 
-            define_method "#{_attribute}=" do |v|
-              send(_to).to_hash.stringify_keys![_attribute] = v
-            end
+          define_method "#{method_name}=" do |v|
+            send(_to).to_hash.stringify_keys![_attribute] = v
           end
         end
       end
@@ -31,17 +47,19 @@ module HashMapAttributes
       arr = []
       class_name = model_name.plural
       options.each_pair do |k, v|
-        to = _hash_map_attributes.select { |a, b| b.include?(k.to_s) }.keys.first
+        container = _hash_map_attributes.find { |a| a.method_name == k.to_s }
+        to = container.to.to_s
+        _attribute = container.attribute.to_s
         next if to.nil?
 
-        arr << "#{class_name}.#{to.to_s}->>'#{k}' = '#{v}'"
+        arr << "#{class_name}.#{to}->>'#{_attribute}' = '#{v}'"
       end
       sql = arr.join(' and ')
       where(sql)
     end
 
     def _hash_map_attributes
-      @_hash_map_attributes ||= {}
+      @_hash_map_attributes ||= []
     end
   end
 end

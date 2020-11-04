@@ -31,19 +31,22 @@ class Page < ApplicationRecord
     #  extra_data  :jsonb
     #  created_at  :datetime         not null
     #  updated_at  :datetime         not null
-  hash_map_attributes :image_url, :background_url, to: :extra_data
+  include HashMapAttributes
+  hash_map_attributes :image_url, to: :extra_data
+  hash_map_attributes :background_url, prefix: :content, to: :extra_data
+
 end
 
-page = Page.new(image_url: 'http://www.image.com/example1.png', background_url: 'http://www.image.com/example2.png')
+page = Page.new(image_url: 'http://www.image.com/example1.png', content_background_url: 'http://www.image.com/example2.png')
 page.save
 page.image_url #=> http://www.image.com/example1.png
-page.background_url #=> http://www.image.com/example2.png
-
+page.content_background_url #=> http://www.image.com/example2.png
 ```
 ### 查询
 
+如果是 jsonb 的话，那么则支持查询
 ```ruby
-Page.where_hash(image_url: 'http://www.baidu.com', background_url: 'http://www.baklib.com')
+Page.where_hash(image_url: 'http://www.baidu.com', content_background_url: 'http://www.baklib.com')
 ```
 控制台会打印如下查询语句
 
