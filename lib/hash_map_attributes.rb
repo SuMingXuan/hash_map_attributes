@@ -21,7 +21,7 @@ module HashMapAttributes
       @ancestors_name = parent_container.ancestors_name + [parent_container.attribute]
       @to = parent_container.to
       @method_name = \
-        if @ancestors_name.empty?
+        if @ancestors_name.blank?
           @attribute
         else
           "#{@ancestors_name.join('_')}_#{@attribute}"
@@ -45,18 +45,18 @@ module HashMapAttributes
           method_name = container.method_name
           define_method method_name do
             if _parent
-              send(_parent).to_hash.stringify_keys![_attribute]
+              send(_parent).to_hash.stringify_keys![_attribute] rescue nil
             else
-              send(_to).to_hash.stringify_keys![_attribute]
+              send(_to).to_hash.stringify_keys![_attribute] rescue nil
             end
           end
 
           define_method "#{method_name}=" do |v|
             if _parent
-              send("#{_parent}=", {}) if send(_parent).empty?
+              send("#{_parent}=", {}) if send(_parent).blank?
               send(_parent).to_hash.stringify_keys![_attribute] = v
             else
-              send("#{_to}=", {}) if send(_to).empty?
+              send("#{_to}=", {}) if send(_to).blank?
               send(_to).to_hash.stringify_keys![_attribute] = v
             end
           end
@@ -76,7 +76,7 @@ module HashMapAttributes
         _ancestors_name = container.ancestors_name
         sql1 = "#{class_name}.#{to}"
         sql2 = \
-          unless _ancestors_name.empty?
+          unless _ancestors_name.blank?
             %Q|->#{_ancestors_name.map {|a| "'#{a}'"}.join('->')}|
           end
         sql3 = "->>'#{_attribute}' = '#{v}'"
