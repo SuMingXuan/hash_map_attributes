@@ -6,41 +6,34 @@ module HashMapAttributes
   end
 
   class AttributeContainer
-    attr_reader :attribute, :to, :prefix, :allow_nil, :method_name, :ancestors_name, :parent
-    def initialize(attribute, to, prefix, allow_nil, parent)
+    attr_reader :attribute, :to, :allow_nil, :method_name, :ancestors_name, :parent
+    def initialize(attribute, to, allow_nil, parent)
       @to = to.to_s
-      @prefix = \
-        if prefix
-          "#{prefix == true ? to : prefix}_"
-        else
-          ''
-        end
       @attribute = attribute.to_s
       @allow_nil = allow_nil
       @parent = parent
-      @method_name = "#{@prefix}#{@attribute}"
+      @method_name = @attribute
       @ancestors_name = []
     end
 
     def set_own_ancestors!(all_ancestores)
       parent_container = all_ancestores.find { |a| a.method_name == parent.to_s }
-      @ancestors_name = parent_container.ancestors_name + [parent]
+      @ancestors_name = parent_container.ancestors_name + [parent_container.attribute]
       @to = parent_container.to
-      @prefix = \
+      @method_name = \
         if @ancestors_name.empty?
-          @prefix
+          @attribute
         else
-          "#{@prefix}#{@ancestors_name.join('_')}_"
+          "#{@ancestors_name.join('_')}_#{@attribute}"
         end
-      @method_name = "#{@prefix}#{@attribute}"
     end
   end
 
   module ClassMethods
-    def hash_map_attributes(*attributes, to: nil, prefix: nil, allow_nil: nil, parent: nil)
+    def hash_map_attributes(*attributes, to: nil, allow_nil: nil, parent: nil)
       _hash_map_attributes
       attributes.each do |attribute|
-        container = AttributeContainer.new(attribute, to, prefix, allow_nil, parent)
+        container = AttributeContainer.new(attribute, to, allow_nil, parent)
         container.set_own_ancestors!(@_hash_map_attributes) if parent
         @_hash_map_attributes << container
       end
@@ -51,7 +44,11 @@ module HashMapAttributes
           _parent = container.parent
           method_name = container.method_name
           define_method method_name do
-            send(_to).to_hash.stringify_keys![_attribute]
+            if _parent
+              send(_parent).to_hash.stringify_keys![_attribute]
+            else
+              send(_to).to_hash.stringify_keys![_attribute]
+            end
           end
 
           define_method "#{method_name}=" do |v|
