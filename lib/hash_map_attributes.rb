@@ -6,38 +6,59 @@ module HashMapAttributes
   end
 
   class AttributeContainer
-    attr_reader :attribute, :to, :prefix, :allow_nil, :method_name
-    def initialize(attribute, to, prefix, allow_nil)
+    attr_reader :attribute, :to, :allow_nil, :method_name, :ancestors_name, :parent
+    def initialize(attribute, to, allow_nil, parent)
       @to = to.to_s
-      @prefix = \
-        if prefix
-          "#{prefix == true ? to : prefix}_"
-        else
-          ''
-        end
       @attribute = attribute.to_s
       @allow_nil = allow_nil
-      @method_name = "#{@prefix}#{@attribute}"
+      @parent = parent
+      @method_name = @attribute
+      @ancestors_name = []
+    end
+
+    def set_own_ancestors!(all_ancestores)
+      parent_container = all_ancestores.find { |a| a.method_name == parent.to_s }
+      @ancestors_name = parent_container.ancestors_name + [parent_container.attribute]
+      @to = parent_container.to
+      @method_name = \
+        if @ancestors_name.blank?
+          @attribute
+        else
+          "#{@ancestors_name.join('_')}_#{@attribute}"
+        end
     end
   end
 
   module ClassMethods
-    def hash_map_attributes(*attributes, to:, prefix: nil, allow_nil: nil)
+    def hash_map_attributes(*attributes, to: nil, allow_nil: nil, parent: nil)
       _hash_map_attributes
       attributes.each do |attribute|
-        @_hash_map_attributes << AttributeContainer.new(attribute, to, prefix, allow_nil)
+        container = AttributeContainer.new(attribute, to, allow_nil, parent)
+        container.set_own_ancestors!(@_hash_map_attributes) if parent
+        @_hash_map_attributes << container
       end
       class_eval do
         _hash_map_attributes.each do |container|
           _attribute = container.attribute
           _to = container.to
+          _parent = container.parent
           method_name = container.method_name
           define_method method_name do
-            send(_to).to_hash.stringify_keys![_attribute]
+            if _parent
+              send(_parent).to_hash.stringify_keys![_attribute] rescue nil
+            else
+              send(_to).to_hash.stringify_keys![_attribute] rescue nil
+            end
           end
 
           define_method "#{method_name}=" do |v|
-            send(_to).to_hash.stringify_keys![_attribute] = v
+            if _parent
+              send("#{_parent}=", {}) if send(_parent).blank?
+              send(_parent).to_hash.stringify_keys![_attribute] = v
+            else
+              send("#{_to}=", {}) if send(_to).blank?
+              send(_to).to_hash.stringify_keys![_attribute] = v
+            end
           end
         end
       end
@@ -48,11 +69,19 @@ module HashMapAttributes
       class_name = model_name.plural
       options.each_pair do |k, v|
         container = _hash_map_attributes.find { |a| a.method_name == k.to_s }
+        next if container.nil?
+
         to = container.to.to_s
         _attribute = container.attribute.to_s
-        next if to.nil?
+        _ancestors_name = container.ancestors_name
+        sql1 = "#{class_name}.#{to}"
+        sql2 = \
+          unless _ancestors_name.blank?
+            %Q|->#{_ancestors_name.map {|a| "'#{a}'"}.join('->')}|
+          end
+        sql3 = "->>'#{_attribute}' = '#{v}'"
 
-        arr << "#{class_name}.#{to}->>'#{_attribute}' = '#{v}'"
+        arr << "#{sql1}#{sql2}#{sql3}"
       end
       sql = arr.join(' and ')
       where(sql)
